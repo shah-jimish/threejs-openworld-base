@@ -8,6 +8,7 @@ let scene, camera, renderer, controls;
 let updateRain = null;
 let player;
 let cameraGroup;
+const clock = new THREE.Clock();
 
 init();
 generateWorld();
@@ -78,8 +79,8 @@ async function generateWorld() {
   // Rain system
   updateRain = createRain(scene);
 
-  //player
-  player = await createPlayer(scene);
+  // player — pass terrain so player code can sample heights
+  player = await createPlayer(scene, terrain);
 }
 
 function onWindowResize() {
@@ -113,7 +114,8 @@ function animate() {
 
   // Update rain each frame
   if (updateRain) updateRain();
-  if (player) updatePlayer(player, camera);
+  const delta = clock.getDelta();
+  if (player) updatePlayer(player, camera, delta);
   updateCameraFollow();
   controls.update();
   renderer.render(scene, camera);
