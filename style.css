@@ -1,0 +1,23 @@
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #000;
+  }
+
+  #generateBtn {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    padding: 8px 16px;
+    font-size: 16px;
+    background: #222;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 10;
+  }
+
+  #generateBtn:hover {
+    background: #333;
+  }
