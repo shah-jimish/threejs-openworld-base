@@ -1,11 +1,13 @@
 import { createRain } from "./rain.js";
 import { createPlayer, updatePlayer } from "./player.js";
+import { createWater } from "./water.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { createNoise2D } from "simplex-noise";
 
 let scene, camera, renderer, controls;
 let updateRain = null;
+let updateWater = null;
 let player;
 let cameraGroup;
 const clock = new THREE.Clock();
@@ -76,8 +78,11 @@ async function generateWorld() {
   directional.position.set(50, 100, 50);
   scene.add(ambient, directional);
 
-  // Rain system
-  updateRain = createRain(scene);
+  // Rain system — pass terrain so it can sample elevation
+  updateRain = createRain(scene, terrain);
+
+  // Water system — creates water in valleys (pass terrain so water matches terrain)
+  updateWater = createWater(scene, terrain);
 
   // player — pass terrain so player code can sample heights
   player = await createPlayer(scene, terrain);
@@ -96,16 +101,17 @@ export function updateCameraFollow() {
   const forward = new THREE.Vector3(0, 0, -1);
   forward.applyQuaternion(player.quaternion).normalize();
 
-  // Camera offset (behind the player)
+  // Camera offset (further back and higher for better third-person view)
   const desiredPosition = player.position.clone()
-    .add(forward.clone().multiplyScalar(10)) // 10 units behind
-    .add(new THREE.Vector3(0, 10, 0));          // 6 units above
+    .add(forward.clone().multiplyScalar(18)) // 18 units behind (was 10)
+    .add(new THREE.Vector3(0, 14, 0));          // 14 units above (was 10)
 
-  // Smooth camera follow
-  camera.position.lerp(desiredPosition, 0.12);
+  // Smooth camera follow with lerp (lower value = smoother)
+  camera.position.lerp(desiredPosition, 0.08);
 
-  // Always look at the player
-  camera.lookAt(player.position);
+  // Look slightly ahead of the player for more dynamic feel
+  const lookTarget = player.position.clone().add(forward.clone().multiplyScalar(3));
+  camera.lookAt(lookTarget);
 }
 
 
@@ -114,6 +120,7 @@ function animate() {
 
   // Update rain each frame
   if (updateRain) updateRain();
+  if (updateWater) updateWater();
   const delta = clock.getDelta();
   if (player) updatePlayer(player, camera, delta);
   updateCameraFollow();

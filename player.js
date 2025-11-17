@@ -29,7 +29,7 @@ export async function createPlayer(scene, terrain = null) {
   }
 
   // store speed and initial physics state; attach terrain reference if provided
-  player.userData = { speed: 0.6, velocityY: 0, isGrounded: true, terrain: terrain };
+  player.userData = { speed: 0.3, velocityY: 0, isGrounded: true, terrain: terrain };
   player.position.set(0, 3, 0);
   scene.add(player);
 
@@ -127,6 +127,7 @@ export function updatePlayer(player, camera, delta = 1/60) {
   if ((keys[' '] || keys['Space']) && player.userData.isGrounded) {
     player.userData.velocityY = 8.0; // initial jump velocity (units/sec)
     player.userData.isGrounded = false;
+    player.userData.justJumped = true;
   }
 
   // Apply gravity (frame-rate independent)
@@ -138,9 +139,13 @@ export function updatePlayer(player, camera, delta = 1/60) {
 
   // Ground collision - clamp and reset velocity only when falling or invalid
   if (player.position.y <= groundHeight || !Number.isFinite(player.position.y)) {
+    const wasAirborne = !player.userData.isGrounded;
     player.position.y = groundHeight;
     player.userData.velocityY = 0;
     player.userData.isGrounded = true;
+    if (wasAirborne) {
+      player.userData.justLanded = true;
+    }
   }
   // // Camera follow
   // const camOffset = new THREE.Vector3(0, 8, 15);
@@ -156,10 +161,21 @@ export function updatePlayer(player, camera, delta = 1/60) {
   //camera.position.lerp(camPos, 0.1);
   camera.lookAt(player.position);
 
+  // Add head bob animation when moving (makes character feel alive)
+  const isMoving = keys.ArrowUp || keys.ArrowDown || keys.ArrowLeft || keys.ArrowRight;
+  if (isMoving && player.userData.isGrounded) {
+    const bobAmount = Math.sin(Date.now() * 0.008) * 0.3;
+    player.position.y += bobAmount * 0.1;
+  }
+
   // update debug overlay if present
   if (player.userData.debugEl) {
-    player.userData.debugEl.innerText = `y: ${player.position.y.toFixed(2)}\nvy: ${player.userData.velocityY.toFixed(2)}`;
+    player.userData.debugEl.innerText = `y: ${player.position.y.toFixed(2)}\nvy: ${player.userData.velocityY.toFixed(2)}\ngrounded: ${player.userData.isGrounded}`;
   }
+
+  // clear one-frame flags
+  player.userData.justJumped = false;
+  player.userData.justLanded = false;
 }
 
 
