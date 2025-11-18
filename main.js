@@ -11,6 +11,9 @@ let updateWater = null;
 let player;
 let cameraGroup;
 const clock = new THREE.Clock();
+let userInteracting = false;
+let lastInteractionTime = 0;
+const interactionReturnDelay = 700; // ms to wait after interaction ends before camera recenters on player
 
 init();
 generateWorld();
@@ -41,15 +44,20 @@ function init() {
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
+  // Mouse-only: allow rotation around target, disable zoom and pan
+  controls.enableZoom = false;
+  controls.enablePan = false;
 
   window.addEventListener("resize", onWindowResize);
+  // Track pointer interactions to allow temporary manual viewing around player
+  renderer.domElement.addEventListener('pointerdown', () => { userInteracting = true; });
+  window.addEventListener('pointerup', () => { userInteracting = false; lastInteractionTime = Date.now(); });
 }
 
 async function generateWorld() {
-  // Clear scene (except camera and lights)
-  while (scene.children.length > 0) {
-    scene.remove(scene.children[0]);
-  }
+  // Clear scene but keep the cameraGroup (don't remove camera)
+  const toRemove = scene.children.filter(c => c !== cameraGroup);
+  toRemove.forEach(c => scene.remove(c));
 
   // Terrain
   const noise2D = createNoise2D();
@@ -86,6 +94,11 @@ async function generateWorld() {
 
   // player — pass terrain so player code can sample heights
   player = await createPlayer(scene, terrain);
+  // Ensure controls target follows the player and position camera behind player initially
+  if (player) {
+    controls.target.copy(player.position);
+    updateCameraFollow();
+  }
 }
 
 function onWindowResize() {
@@ -123,7 +136,16 @@ function animate() {
   if (updateWater) updateWater();
   const delta = clock.getDelta();
   if (player) updatePlayer(player, camera, delta);
-  updateCameraFollow();
+  // If user is actively interacting with mouse, don't force camera follow.
+  const timeSinceInteract = Date.now() - lastInteractionTime;
+  if (!userInteracting && timeSinceInteract > interactionReturnDelay) {
+    updateCameraFollow();
+    // make sure controls are focused on player position
+    if (player) controls.target.copy(player.position);
+  } else {
+    // while interacting, still ensure target follows player so rotation is around player
+    if (player) controls.target.copy(player.position);
+  }
   controls.update();
   renderer.render(scene, camera);
 }
